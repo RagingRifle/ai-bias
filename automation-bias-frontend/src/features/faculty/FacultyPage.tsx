@@ -23,6 +23,10 @@ export default function FacultyPage() {
     penalty: 0
   })
 
+  // To display exactly what the server currently thinks the settings are
+  const [activeSettings, setActiveSettings] = useState<typeof settings | null>(null)
+  const [isSaved, setIsSaved] = useState(false)
+
   const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000",
   })
@@ -40,6 +44,7 @@ export default function FacultyPage() {
       setAnalytics(analyticsRes.data)
       setLeaderboard(leaderboardRes.data)
       setSettings(settingsRes.data)
+      setActiveSettings(settingsRes.data)
     } catch (err) {
       console.error("Faculty fetch error:", err)
     }
@@ -48,7 +53,9 @@ export default function FacultyPage() {
   const updateSettings = async () => {
     try {
       await api.post("/faculty-settings", settings)
-      fetchData()
+      await fetchData()
+      setIsSaved(true)
+      setTimeout(() => setIsSaved(false), 3000)
     } catch (err) {
       console.error("Settings update failed:", err)
     }
@@ -89,8 +96,39 @@ export default function FacultyPage() {
         </div>
       </div>
 
+      {activeSettings && (
+        <div className="bg-[#111827] p-6 rounded-2xl border border-indigo-500/30 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+            <h2 className="text-xl font-semibold text-indigo-100">Currently Active Server Settings</h2>
+          </div>
+          <div className="grid grid-cols-5 gap-4">
+            <div className="bg-[#0B1220] p-4 rounded-xl border border-[#1F2937]">
+              <p className="text-sm text-slate-400">Session ID</p>
+              <p className="font-mono text-emerald-400 mt-1">{activeSettings.sessionId}</p>
+            </div>
+            <div className="bg-[#0B1220] p-4 rounded-xl border border-[#1F2937]">
+              <p className="text-sm text-slate-400">Venom Frequency</p>
+              <p className="font-mono text-emerald-400 mt-1">{activeSettings.venomFrequency}%</p>
+            </div>
+            <div className="bg-[#0B1220] p-4 rounded-xl border border-[#1F2937]">
+              <p className="text-sm text-slate-400">Venom Severity</p>
+              <p className="font-mono text-emerald-400 mt-1">{activeSettings.venomSeverity}%</p>
+            </div>
+            <div className="bg-[#0B1220] p-4 rounded-xl border border-[#1F2937]">
+              <p className="text-sm text-slate-400">Reward</p>
+              <p className="font-mono text-emerald-400 mt-1">{activeSettings.reward}</p>
+            </div>
+            <div className="bg-[#0B1220] p-4 rounded-xl border border-[#1F2937]">
+              <p className="text-sm text-slate-400">Penalty</p>
+              <p className="font-mono text-emerald-400 mt-1">{activeSettings.penalty}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="bg-[#111827] p-6 rounded-2xl border border-[#1F2937] space-y-4">
-        <h2 className="text-xl font-semibold">Faculty Settings</h2>
+        <h2 className="text-xl font-semibold">Change Settings</h2>
 
         <div className="grid grid-cols-5 gap-4">
           <InputField
@@ -120,12 +158,18 @@ export default function FacultyPage() {
           />
         </div>
 
-        <button
-          onClick={updateSettings}
-          className="bg-indigo-600 px-6 py-2 rounded-xl hover:bg-indigo-500 transition"
-        >
-          Update Settings
-        </button>
+        <div className="flex items-center gap-4 pt-2">
+          <button
+            onClick={updateSettings}
+            className="bg-indigo-600 px-6 py-2 rounded-xl hover:bg-indigo-500 transition font-medium"
+          >
+            Update Settings
+          </button>
+          
+          {isSaved && (
+             <span className="text-emerald-400 text-sm font-medium animate-pulse">✓ Settings saved and active on server</span>
+          )}
+        </div>
       </div>
 
     </div>
