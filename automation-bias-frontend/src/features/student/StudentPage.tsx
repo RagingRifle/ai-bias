@@ -72,7 +72,7 @@ useEffect(() => {
 
       setMessages(prev => [...prev, aiMessage])
 
-      const fullText: string = data.answer
+      const fullText: string = data.answer || "Sorry, I could not process an answer."
       let index = 0
 
       const interval = setInterval(() => {
