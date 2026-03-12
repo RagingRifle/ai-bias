@@ -30,7 +30,7 @@ const PORT = process.env.PORT || 5000;
 // Faculty-controlled settings (still in-memory for now)
 let facultySettings = {
     sessionId: "Default-Session",
-    venomFrequency: 0.3, // Probability of error
+    venomFrequency: 30, // Percentage probability of error (0-100)
     venomSeverity: 50,   // Percentage of error within the answer
     reward: 2,
     penalty: 5
@@ -42,6 +42,11 @@ let activeQuestions = {};
 // Root
 app.get('/', (req, res) => {
     res.send('Backend is running 🚀');
+});
+
+// Get faculty settings
+app.get('/faculty-settings', (req, res) => {
+    res.json(facultySettings);
 });
 
 // Update faculty settings
@@ -59,7 +64,7 @@ app.post('/generate', async (req, res) => {
             return res.status(400).json({ error: "Question is required" });
         }
 
-        const injectError = Math.random() < facultySettings.venomFrequency;
+        const injectError = (Math.random() * 100) < facultySettings.venomFrequency;
         const aiResponse = await generateAIResponse(question, injectError, facultySettings.venomSeverity);
 
         const questionId =

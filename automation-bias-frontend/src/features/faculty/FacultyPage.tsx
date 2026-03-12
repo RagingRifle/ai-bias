@@ -24,7 +24,7 @@ export default function FacultyPage() {
   })
 
   const api = axios.create({
-    baseURL: "http://localhost:5000"
+    baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000",
   })
 
   useEffect(() => {
@@ -35,9 +35,11 @@ export default function FacultyPage() {
     try {
       const analyticsRes = await api.get("/analytics")
       const leaderboardRes = await api.get("/leaderboard")
+      const settingsRes = await api.get("/faculty-settings")
 
       setAnalytics(analyticsRes.data)
       setLeaderboard(leaderboardRes.data)
+      setSettings(settingsRes.data)
     } catch (err) {
       console.error("Faculty fetch error:", err)
     }
@@ -97,7 +99,7 @@ export default function FacultyPage() {
             onChange={(v: string) => setSettings({ ...settings, sessionId: v })}
           />
           <InputField
-            label="Venom Frequency (0-1)"
+            label="Venom Frequency (1-100)"
             value={settings.venomFrequency}
             onChange={(v: string) => setSettings({ ...settings, venomFrequency: Number(v) })}
           />

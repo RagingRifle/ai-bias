@@ -11,8 +11,16 @@ export default function LoginPage() {
 
   const handleLogin = () => {
     if (!id.trim()) {
-      setError("Please enter your ID.")
+      setError(role === "student" ? "Please enter your ID." : "Please enter the passcode.")
       return
+    }
+
+    if (role === "faculty") {
+      const passcode = import.meta.env.VITE_FACULTY_PASSCODE || "research2026"
+      if (id.trim() !== passcode) {
+        setError("Invalid Faculty Passcode.")
+        return
+      }
     }
 
     setError("")
@@ -71,7 +79,8 @@ export default function LoginPage() {
             value={id}
             onChange={(e) => setId(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleLogin()}
-            placeholder={role === "student" ? "Enter Student ID" : "Enter Faculty ID"}
+            placeholder={role === "student" ? "Enter Student ID" : "Enter Faculty Passcode"}
+            type={role === "student" ? "text" : "password"}
             className="w-full bg-[#0B1220] border border-[#1F2937] px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-600"
           />
 
