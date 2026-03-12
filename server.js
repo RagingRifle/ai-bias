@@ -27,8 +27,8 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 5000;
 
-// Faculty-controlled settings (still in-memory for now)
-let facultySettings = {
+// Default fallback settings in case the database is empty
+const defaultSettings = {
     sessionId: "Default-Session",
     venomFrequency: 30, // Percentage probability of error (0-100)
     venomSeverity: 50,   // Percentage of error within the answer
@@ -44,15 +44,31 @@ app.get('/', (req, res) => {
     res.send('Backend is running 🚀');
 });
 
-// Get faculty settings
-app.get('/faculty-settings', (req, res) => {
-    res.json(facultySettings);
+// Get faculty settings (Now fetching from Firestore)
+app.get('/faculty-settings', async (req, res) => {
+    try {
+        const doc = await db.collection("settings").doc("current").get();
+        if (doc.exists) {
+            res.json(doc.data());
+        } else {
+            res.json(defaultSettings);
+        }
+    } catch (error) {
+        console.error("Error fetching settings:", error);
+        res.status(500).json({ error: "Failed to fetch settings" });
+    }
 });
 
-// Update faculty settings
-app.post('/faculty-settings', (req, res) => {
-    facultySettings = req.body;
-    res.json({ message: "Settings updated", facultySettings });
+// Update faculty settings (Now writing to Firestore)
+app.post('/faculty-settings', async (req, res) => {
+    try {
+        const newSettings = req.body;
+        await db.collection("settings").doc("current").set(newSettings);
+        res.json({ message: "Settings reliably saved to database", facultySettings: newSettings });
+    } catch (error) {
+        console.error("Error saving settings:", error);
+        res.status(500).json({ error: "Failed to save settings" });
+    }
 });
 
 // Generate AI answer
@@ -64,17 +80,24 @@ app.post('/generate', async (req, res) => {
             return res.status(400).json({ error: "Question is required" });
         }
 
-        const injectError = (Math.random() * 100) < facultySettings.venomFrequency;
-        const aiResponse = await generateAIResponse(question, injectError, facultySettings.venomSeverity);
+        // Always fetch the very latest settings from DB before rolling the dice
+        let currentSettings = defaultSettings;
+        const settingsDoc = await db.collection("settings").doc("current").get();
+        if (settingsDoc.exists) {
+            currentSettings = settingsDoc.data();
+        }
+
+        const injectError = (Math.random() * 100) < currentSettings.venomFrequency;
+        const aiResponse = await generateAIResponse(question, injectError, currentSettings.venomSeverity);
 
         const questionId =
             Date.now().toString() + Math.random().toString(36).substring(2);
 
         activeQuestions[questionId] = {
             question,
-            sessionId: facultySettings.sessionId,
+            sessionId: currentSettings.sessionId,
             errorInjected: injectError,
-            venomSeverity: injectError ? facultySettings.venomSeverity : 0
+            venomSeverity: injectError ? currentSettings.venomSeverity : 0
         };
 
         res.json({
