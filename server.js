@@ -29,7 +29,9 @@ const PORT = process.env.PORT || 5000;
 
 // Faculty-controlled settings (still in-memory for now)
 let facultySettings = {
-    errorProbability: 0.3,
+    sessionId: "Default-Session",
+    venomFrequency: 0.3, // Probability of error
+    venomSeverity: 50,   // Percentage of error within the answer
     reward: 2,
     penalty: 5
 };
@@ -57,15 +59,17 @@ app.post('/generate', async (req, res) => {
             return res.status(400).json({ error: "Question is required" });
         }
 
-        const injectError = Math.random() < facultySettings.errorProbability;
-        const aiResponse = await generateAIResponse(question, injectError);
+        const injectError = Math.random() < facultySettings.venomFrequency;
+        const aiResponse = await generateAIResponse(question, injectError, facultySettings.venomSeverity);
 
         const questionId =
             Date.now().toString() + Math.random().toString(36).substring(2);
 
         activeQuestions[questionId] = {
             question,
-            errorInjected: injectError
+            sessionId: facultySettings.sessionId,
+            errorInjected: injectError,
+            venomSeverity: injectError ? facultySettings.venomSeverity : 0
         };
 
         res.json({
@@ -81,18 +85,17 @@ app.post('/generate', async (req, res) => {
     }
 });
 
-// Submit answer
 app.post('/submit', async (req, res) => {
     try {
-        const { studentId, questionId, studentChoice, responseTime } = req.body;
+        const { studentId, questionId, initialChoice, finalChoice, socraticTime, responseTime, confidence } = req.body;
 
         // Validation
-        if (!studentId || !questionId || !studentChoice || responseTime === undefined) {
+        if (!studentId || !questionId || !initialChoice || !finalChoice || responseTime === undefined) {
             return res.status(400).json({ error: "Missing required fields" });
         }
 
-        if (!["Correct", "Wrong"].includes(studentChoice)) {
-            return res.status(400).json({ error: "Invalid studentChoice" });
+        if (!["Correct", "Wrong"].includes(finalChoice)) {
+            return res.status(400).json({ error: "Invalid finalChoice" });
         }
 
         if (typeof responseTime !== "number" || responseTime < 0) {
@@ -117,22 +120,22 @@ app.post('/submit', async (req, res) => {
         let scoreDelta = 0;
 
         // False Positive
-        if (errorInjected && studentChoice === "Correct") {
+        if (errorInjected && finalChoice === "Correct") {
             scoreDelta = -facultySettings.penalty;
         }
 
         // True Positive
-        if (!errorInjected && studentChoice === "Correct") {
+        if (!errorInjected && finalChoice === "Correct") {
             scoreDelta = facultySettings.reward;
         }
 
         // True Negative
-        if (errorInjected && studentChoice === "Wrong") {
+        if (errorInjected && finalChoice === "Wrong") {
             scoreDelta = facultySettings.reward;
         }
 
         // False Negative
-        if (!errorInjected && studentChoice === "Wrong") {
+        if (!errorInjected && finalChoice === "Wrong") {
             scoreDelta = -2;
         }
 
@@ -157,8 +160,13 @@ app.post('/submit', async (req, res) => {
         await db.collection("logs").add({
             studentId,
             questionId,
+            sessionId: storedQuestion.sessionId,
             errorInjected,
-            studentChoice,
+            venomSeverity: storedQuestion.venomSeverity,
+            initialChoice,
+            finalChoice,
+            socraticTime: socraticTime || 0,
+            confidence: confidence || 0,
             responseTime,
             isLate,
             scoreDelta,

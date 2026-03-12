@@ -12,14 +12,20 @@ export const generateAI = async (question: string) => {
 export const submitDecision = async (
   studentId: string,
   questionId: string,
-  studentChoice: "Correct" | "Wrong",
-  responseTime: number
+  initialChoice: "Correct" | "Wrong" | null,
+  finalChoice: "Correct" | "Wrong",
+  socraticTime: number,
+  responseTime: number,
+  confidence: number
 ) => {
   const response = await api.post("/submit", {
     studentId,
     questionId,
-    studentChoice,
+    initialChoice: initialChoice || finalChoice, // Fallback if no initial choice made
+    finalChoice,
+    socraticTime,
     responseTime,
+    confidence
   })
   return response.data
 }

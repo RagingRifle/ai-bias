@@ -32,6 +32,9 @@ useEffect(() => {
   const [input, setInput] = useState("")
   const [inputLocked, setInputLocked] = useState(false)
   const [startTime, setStartTime] = useState<number | null>(null)
+  const [socraticStartTime, setSocraticStartTime] = useState<number | null>(null)
+  const [initialDecision, setInitialDecision] = useState<"Correct" | "Wrong" | null>(null)
+  const [confidence, setConfidence] = useState<number>(3)
   const [totalScore, setTotalScore] = useState<number | null>(null)
 
   const chatEndRef = useRef<HTMLDivElement | null>(null)
@@ -90,17 +93,19 @@ useEffect(() => {
           clearInterval(interval)
 
           setTimeout(() => {
-            setMessages(prev =>
-              prev.map(msg =>
-                msg.id === aiId
-                  ? { ...msg, showSocratic: true }
-                  : msg
-              )
-            )
-
             if (mode === "research") {
               setInputLocked(true)
               setStartTime(performance.now())
+              // In research mode, do NOT show socratic yet. Wait for initial decision.
+            } else {
+              // In learning mode, show socratic immediately
+              setMessages(prev =>
+                prev.map(msg =>
+                  msg.id === aiId
+                    ? { ...msg, showSocratic: true }
+                    : msg
+                )
+              )
             }
           }, 500)
         }
@@ -111,11 +116,29 @@ useEffect(() => {
     }
   }
 
-  // 🔥 SUBMIT DECISION
+  // 🔥 HANDLE DECISION (PHASE 1 or PHASE 2)
   const handleDecision = async (choice: "correct" | "wrong") => {
     if (!startTime) return
 
-    const responseTime = performance.now() - startTime
+    // Phase 1: Initial Decision before Socratic
+    if (initialDecision === null) {
+      setInitialDecision(choice === "correct" ? "Correct" : "Wrong")
+      setSocraticStartTime(performance.now())
+
+      // Reveal Socratic questions now
+      setMessages(prev =>
+        prev.map(msg =>
+          msg.role === "ai" && !msg.showSocratic
+            ? { ...msg, showSocratic: true }
+            : msg
+        )
+      )
+      return;
+    }
+
+    // Phase 2: Final Decision after Socratic reflection
+    const totalResponseTime = performance.now() - startTime
+    const socraticTime = socraticStartTime ? performance.now() - socraticStartTime : 0;
 
     const lastAI = [...messages]
       .reverse()
@@ -127,8 +150,11 @@ useEffect(() => {
       const result = await submitDecision(
         studentId,
         lastAI.questionId,
+        initialDecision,
         choice === "correct" ? "Correct" : "Wrong",
-        Math.floor(responseTime)
+        Math.floor(socraticTime),
+        Math.floor(totalResponseTime),
+        confidence
       )
 
       setTotalScore(result.totalScore)
@@ -139,6 +165,9 @@ useEffect(() => {
 
     setInputLocked(false)
     setStartTime(null)
+    setSocraticStartTime(null)
+    setInitialDecision(null)
+    setConfidence(3)
   }
 
   return (
@@ -263,19 +292,59 @@ useEffect(() => {
                     </div>
 
                     {mode === "research" && msg.checkpoint && inputLocked && (
-                      <div className="bg-[#111827] border border-indigo-600/40 px-6 py-4 rounded-xl flex justify-center gap-4">
-                        <button
-                          onClick={() => handleDecision("correct")}
-                          className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 transition"
-                        >
-                          AI is Correct
-                        </button>
-                        <button
-                          onClick={() => handleDecision("wrong")}
-                          className="px-5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 transition"
-                        >
-                          AI is Wrong
-                        </button>
+                      <div className="bg-[#111827] border border-indigo-600/40 px-6 py-4 rounded-xl flex flex-col items-center gap-4">
+                        {initialDecision === null ? (
+                          <>
+                            <p className="text-sm text-slate-300 mb-2">Based on the explanation above, what is your initial assessment?</p>
+                            <div className="flex gap-4">
+                              <button
+                                onClick={() => handleDecision("correct")}
+                                className="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 transition"
+                              >
+                                AI is Correct
+                              </button>
+                              <button
+                                onClick={() => handleDecision("wrong")}
+                                className="px-5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 transition"
+                              >
+                                AI is Wrong
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="w-full flex flex-col items-center space-y-4">
+                            <p className="text-sm text-slate-300">Read the reflection questions above. Has your assessment changed?</p>
+                            
+                            <div className="w-full max-w-sm space-y-2">
+                              <label className="text-xs text-slate-400 flex justify-between">
+                                <span>Unsure (1)</span>
+                                <span>Confidence: {confidence}/5</span>
+                                <span>Certain (5)</span>
+                              </label>
+                              <input 
+                                type="range" min="1" max="5" 
+                                value={confidence} 
+                                onChange={(e) => setConfidence(Number(e.target.value))}
+                                className="w-full accent-indigo-500" 
+                              />
+                            </div>
+
+                            <div className="flex gap-4 pt-2">
+                              <button
+                                onClick={() => handleDecision("correct")}
+                                className={`px-5 py-2 rounded-lg transition ${initialDecision === "Correct" ? "bg-emerald-600 font-bold ring-2 ring-emerald-400" : "bg-[#1F2937] hover:bg-emerald-600/50"}`}
+                              >
+                                Final: AI is Correct
+                              </button>
+                              <button
+                                onClick={() => handleDecision("wrong")}
+                                className={`px-5 py-2 rounded-lg transition ${initialDecision === "Wrong" ? "bg-amber-500 font-bold ring-2 ring-amber-300" : "bg-[#1F2937] hover:bg-amber-500/50"}`}
+                              >
+                                Final: AI is Wrong
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

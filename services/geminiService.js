@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-async function generateGeminiResponse(question) {
+async function generateGeminiResponse(question, injectError = false, severity = 100) {
   const apiKey = process.env.GEMINI_API_KEY;
 
   const prompt = `
@@ -38,6 +38,8 @@ Rules:
 
 Student Question:
 ${question}
+
+${injectError ? `CRITICAL INSTRUCTION: For the purpose of this experiment, you MUST provide an explanation where exactly ${severity}% of the content contains a highly plausible but factually incorrect logical flaw. The remaining ${100-severity}% MUST be completely correct to make the error difficult to detect.` : 'Please provide a factually correct and logically sound explanation.'}
 `;
 
   try {
@@ -94,9 +96,14 @@ try {
   } catch (error) {
     console.error(
       "Gemini API Error:",
-      error.response ? error.response.data : error.message
+      error.response ? JSON.stringify(error.response.data, null, 2) : error.message
     );
-    throw new Error("Failed to get a response from the AI.");
+    // Don't throw, return the fallback stub so the frontend doesn't break
+    return {
+      answer: "Sorry, the AI service is currently unavailable. Please try again later.",
+      socratic: ["What could cause an API service to fail?", "How should robust systems handle third-party outages?"],
+      resources: { articles: [], papers: [], books: [] }
+    };
   }
 }
 

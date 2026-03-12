@@ -16,7 +16,9 @@ export default function FacultyPage() {
   const [analytics, setAnalytics] = useState<Analytics | null>(null)
   const [leaderboard, setLeaderboard] = useState<Record<string, number>>({})
   const [settings, setSettings] = useState({
-    errorProbability: 0,
+    sessionId: "Default",
+    venomFrequency: 0,
+    venomSeverity: 0,
     reward: 0,
     penalty: 0
   })
@@ -88,11 +90,21 @@ export default function FacultyPage() {
       <div className="bg-[#111827] p-6 rounded-2xl border border-[#1F2937] space-y-4">
         <h2 className="text-xl font-semibold">Faculty Settings</h2>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-5 gap-4">
           <InputField
-            label="Error Probability"
-            value={settings.errorProbability}
-            onChange={(v: string) => setSettings({ ...settings, errorProbability: Number(v) })}
+            label="Session ID"
+            value={settings.sessionId}
+            onChange={(v: string) => setSettings({ ...settings, sessionId: v })}
+          />
+          <InputField
+            label="Venom Frequency (0-1)"
+            value={settings.venomFrequency}
+            onChange={(v: string) => setSettings({ ...settings, venomFrequency: Number(v) })}
+          />
+          <InputField
+            label="Venom Severity (1-100)"
+            value={settings.venomSeverity}
+            onChange={(v: string) => setSettings({ ...settings, venomSeverity: Number(v) })}
           />
           <InputField
             label="Reward"
